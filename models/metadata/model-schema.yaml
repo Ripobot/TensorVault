@@ -1,0 +1,91 @@
+#!/usr/bin/env python3
+"""
+Validate model metadata files against models/metadata/model-schema.yaml.
+
+Usage:
+  python3 scripts/validate_metadata.py models/metadata/example-model.yaml
+  python3 scripts/validate_metadata.py models/metadata/*.yaml
+
+Dependencies:
+  pip install jsonschema PyYAML
+
+This script locates the schema at ../models/metadata/model-schema.yaml (relative to this script).
+"""
+from pathlib import Path
+import sys
+import argparse
+import yaml
+
+try:
+    import jsonschema
+    from jsonschema import Draft7Validator, FormatChecker
+except Exception as e:
+    print("Missing dependency: jsonschema. Install with `pip install jsonschema PyYAML`", file=sys.stderr)
+    raise
+
+def load_schema(schema_path: Path):
+    if not schema_path.exists():
+        raise FileNotFoundError(f"Schema not found at: {schema_path}")
+    with schema_path.open("r", encoding="utf-8") as f:
+        return yaml.safe_load(f)
+
+def load_metadata(path: Path):
+    with path.open("r", encoding="utf-8") as f:
+        return yaml.safe_load(f)
+
+def format_error(err: jsonschema.ValidationError):
+    # Build a readable path to the failing field
+    if err.absolute_path:
+        path = "/".join(str(p) for p in err.absolute_path)
+    else:
+        path = "<root>"
+    return f"{path}: {err.message}"
+
+def validate_file(validator: Draft7Validator, path: Path):
+    try:
+        data = load_metadata(path)
+    except Exception as e:
+        return False, [f"Failed to parse YAML: {e}"]
+
+    errors = []
+    for err in validator.iter_errors(data):
+        errors.append(format_error(err))
+
+    return (len(errors) == 0), errors
+
+def main(argv):
+    p = argparse.ArgumentParser(description="Validate model metadata YAML files against schema")
+    p.add_argument("files", nargs="+", help="Path(s) to metadata YAML file(s) to validate")
+    args = p.parse_args(argv)
+
+    repo_root = Path(__file__).resolve().parent.parent
+    schema_path = repo_root / "models" / "metadata" / "model-schema.yaml"
+    try:
+        schema = load_schema(schema_path)
+    except Exception as e:
+        print(f"Error loading schema: {e}", file=sys.stderr)
+        return 2
+
+    validator = Draft7Validator(schema, format_checker=FormatChecker())
+
+    any_failed = False
+    for pattern in args.files:
+        for path in sorted(Path().glob(pattern) if ("*" in pattern or "?" in pattern) else [Path(pattern)]):
+            if not path.exists():
+                print(f"[MISSING] {path}", file=sys.stderr)
+                any_failed = True
+                continue
+            ok, errors = validate_file(validator, path)
+            if ok:
+                print(f"[OK]     {path}")
+            else:
+                any_failed = True
+                print(f"[FAIL]   {path}")
+                for e in errors:
+                    print(f"         - {e}")
+
+    return (2 if any_failed else 0)
+
+if __name__ == "__main__":
+    exit_code = main(sys.argv[1:])
+    sys.exit(exit_code)
