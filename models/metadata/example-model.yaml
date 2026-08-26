@@ -1,0 +1,28 @@
+# Example model metadata for TensorVault
+name: "example-model"
+version: "0.1.0"
+display_name: "Example Model v0.1"
+description: "A small example model entry used to test the TensorVault metadata schema and validator."
+tags:
+  - llm
+  - example
+license:
+  id: "Apache-2.0"
+  url: "https://www.apache.org/licenses/LICENSE-2.0"
+provenance:
+  source: "https://huggingface.co/example/example-model"
+  fetched_at: "2026-08-26T12:00:00Z"
+weights:
+  - filename: "example-model-00001.safetensors"
+    url: "https://storage.example.com/example-model-00001.safetensors"
+    sha256: "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+    size_bytes: 123456789
+    platform: "safetensors"
+config:
+  architecture: "decoder-only"
+  params: 1000000000
+model_card: "https://example.com/model-card"
+contact:
+  name: "Example Maintainer"
+  email: "maintainer@example.com"
+  url: "https://example.com/team"
